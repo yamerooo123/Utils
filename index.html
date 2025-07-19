@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>File Hosting with Drag & Drop</title>
+    <title>Alfred's butler</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -79,7 +80,7 @@
     </style>
 </head>
 <body>
-    <h1>File Hosting Service</h1>
+    <h1>File upload</h1>
     <div id="dropZone">Drop files here or click to select</div>
     
     <div id="fileBrowser">
@@ -134,7 +135,7 @@
 
         // Load files from server
         function loadFiles() {
-            fetch('http://localhost:8000/list-files')
+            fetch('/list-files')
                 .then(response => response.json())
                 .then(files => {
                     if (files.length === 0) {
@@ -188,7 +189,7 @@
                     }
                 });
 
-                xhr.open('POST', 'http://localhost:8000/upload', true);
+                xhr.open('POST', '/upload', true);
                 xhr.onload = () => {
                     if (xhr.status === 200) {
                         setTimeout(loadFiles, 500); // Refresh file list after upload
