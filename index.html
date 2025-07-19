@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Hosting with Drag & Drop</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #dropZone {
+            width: 100%;
+            height: 200px;
+            border: 3px dashed #aaa;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            font-size: 18px;
+            cursor: pointer;
+            background: #f9f9f9;
+        }
+        #dropZone.highlight {
+            background: #f0f0f0;
+            border-color: #555;
+        }
+        #fileBrowser {
+            margin-top: 30px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            align-items: center;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-name {
+            flex-grow: 1;
+            margin-right: 20px;
+            word-break: break-all;
+        }
+        .file-size {
+            color: #666;
+            margin-right: 20px;
+            white-space: nowrap;
+        }
+        .download-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .download-btn:hover {
+            background: #45a049;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        .progress {
+            height: 10px;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            width: 0%;
+        }
+    </style>
+</head>
+<body>
+    <h1>File Hosting Service</h1>
+    <div id="dropZone">Drop files here or click to select</div>
+    
+    <div id="fileBrowser">
+        <h2>Uploaded Files</h2>
+        <div id="fileList"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileList = document.getElementById('fileList');
+
+        // Initialize by loading files
+        loadFiles();
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
+            dropZone.addEventListener(event, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+
+        // Highlight on drag-over
+        ['dragenter', 'dragover'].forEach(event => {
+            dropZone.addEventListener(event, () => {
+                dropZone.classList.add('highlight');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(event => {
+            dropZone.addEventListener(event, () => {
+                dropZone.classList.remove('highlight');
+            });
+        });
+
+        // Handle file drop
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                uploadFiles(files);
+            }
+        });
+
+        // Handle click-to-select
+        dropZone.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.onchange = (e) => uploadFiles(e.target.files);
+            input.click();
+        });
+
+        // Load files from server
+        function loadFiles() {
+            fetch('http://localhost:8000/list-files')
+                .then(response => response.json())
+                .then(files => {
+                    if (files.length === 0) {
+                        fileList.innerHTML = '<p>No files uploaded yet.</p>';
+                        return;
+                    }
+                    
+                    fileList.innerHTML = '';
+                    files.forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item';
+                        
+                        fileItem.innerHTML = `
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${formatBytes(file.size)}</div>
+                            <a href="${file.url}" class="download-btn">Download</a>
+                        `;
+                        
+                        fileList.appendChild(fileItem);
+                    });
+                })
+                .catch(error => {
+                    fileList.innerHTML = '<p>Error loading files. Make sure the server is running.</p>';
+                });
+        }
+
+        // Upload files to server
+        function uploadFiles(files) {
+            const uploadStatus = document.createElement('div');
+            uploadStatus.innerHTML = '<h3>Uploading Files...</h3>';
+            fileList.prepend(uploadStatus);
+
+            Array.from(files).forEach((file) => {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const progressContainer = document.createElement('div');
+                progressContainer.innerHTML = `
+                    <div>${file.name} (${formatBytes(file.size)})</div>
+                    <div class="progress-bar">
+                        <div class="progress" id="progress-${file.name}"></div>
+                    </div>
+                `;
+                uploadStatus.appendChild(progressContainer);
+
+                const xhr = new XMLHttpRequest();
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = (e.loaded / e.total) * 100;
+                        document.getElementById(`progress-${file.name}`).style.width = `${percent}%`;
+                    }
+                });
+
+                xhr.open('POST', 'http://localhost:8000/upload', true);
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        setTimeout(loadFiles, 500); // Refresh file list after upload
+                    }
+                };
+                xhr.send(formData);
+            });
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
