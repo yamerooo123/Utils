@@ -130,7 +130,10 @@ class FileHandler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     # Create uploads directory if it doesn't exist
-    os.makedirs("uploads", exist_ok=True)
+    upload_dir = "uploads"
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
+        print(f"Created upload directory: {os.path.abspath(upload_dir)}")
     
     # Set socket options for better performance
     import socket
