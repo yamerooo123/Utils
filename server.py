@@ -7,6 +7,7 @@ import time
 from urllib.parse import unquote
 import gzip
 import io
+import shutil
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in separate threads."""
@@ -21,6 +22,8 @@ class FileHandler(SimpleHTTPRequestHandler):
         try:
             if self.path == '/list-files':
                 self.handle_file_list()
+            elif self.path.startswith('/download/'):
+                self.handle_file_download()
             else:
                 # Serve static files with caching headers
                 if self.path.endswith(('.html', '.css', '.js', '.png', '.jpg', '.jpeg')):
@@ -38,6 +41,54 @@ class FileHandler(SimpleHTTPRequestHandler):
                 self.send_error(404, "Not Found")
         finally:
             print(f"POST {self.path} took {time.time() - start_time:.2f}s")
+
+    def handle_file_download(self):
+        try:
+            # Extract filename from URL path
+            filename = unquote(self.path[10:])  # Remove '/download/' prefix
+            print(f"DEBUG: Requested filename: '{filename}'")
+            print(f"DEBUG: Full path: '{self.path}'")
+            
+            if not filename:
+                self.send_error(400, "Bad Request: No filename specified")
+                return
+                
+            # Prevent directory traversal attacks
+            filename = os.path.basename(filename)
+            file_path = os.path.join("uploads", filename)
+            
+            print(f"DEBUG: Looking for file at: '{os.path.abspath(file_path)}'")
+            print(f"DEBUG: File exists: {os.path.exists(file_path)}")
+            print(f"DEBUG: Is file: {os.path.isfile(file_path) if os.path.exists(file_path) else 'N/A'}")
+            
+            # List what's actually in the uploads directory
+            upload_dir = "uploads"
+            if os.path.exists(upload_dir):
+                files_in_dir = os.listdir(upload_dir)
+                print(f"DEBUG: Files in uploads directory: {files_in_dir}")
+            else:
+                print("DEBUG: Uploads directory doesn't exist")
+            
+            if not os.path.exists(file_path) or not os.path.isfile(file_path):
+                self.send_error(404, f"File not found: {filename}")
+                return
+            
+            # Get file info
+            file_size = os.path.getsize(file_path)
+            
+            # Send headers
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+            self.send_header('Content-Length', str(file_size))
+            self.end_headers()
+            
+            # Send file in chunks
+            with open(file_path, 'rb') as f:
+                shutil.copyfileobj(f, self.wfile)
+                
+        except Exception as e:
+            self.send_error(500, f"Internal Server Error: {str(e)}")
 
     def handle_file_upload(self):
         try:
