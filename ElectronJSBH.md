@@ -19,7 +19,7 @@ Use this skill when the user:
 ## Ground Rules
 
 - Only test apps that are in scope (bug bounty program, client engagement, or open-source software you run locally). Follow the program's rules on local-only findings.
-- Work in a VM with snapshots. Never modify live installs or production update servers.
+- Never modify live installs or production update servers.
 - Prove impact with **benign** actions only: `console.log`, reading `process.versions`, reading a file you created, or `whoami`. No destructive commands, no persistence.
 - Always ask: **can a remote attacker deliver the input?** This decides severity more than anything else.
 
